@@ -13,10 +13,16 @@ class MenuItem {
 
   factory MenuItem.fromJson(Map<String, dynamic> json) {
     return MenuItem(
-      idMenu: json['id_menu'] ?? 0,
+      idMenu: _toInt(json['id_menu']),
       namaMenu: json['nama_menu'] ?? '',
-      harga: json['harga'] ?? 0,
-      idKategori: json['id_kategori'] ?? 0,
+      harga: _toInt(json['harga']),
+      idKategori: _toInt(json['id_kategori']),
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }

@@ -21,14 +21,20 @@ class DetailPesanan {
 
   factory DetailPesanan.fromJson(Map<String, dynamic> json) {
     return DetailPesanan(
-      idDetail: json['id_detail'] ?? 0,
-      idPesanan: json['id_pesanan'] ?? 0,
-      idMenu: json['id_menu'] ?? 0,
+      idDetail: _toInt(json['id_detail']),
+      idPesanan: _toInt(json['id_pesanan']),
+      idMenu: _toInt(json['id_menu']),
       namaMenu: json['nama_menu'] ?? '',
-      jumlah: json['jumlah'] ?? 0,
-      hargaSatuan: json['harga_satuan'] ?? 0,
-      subtotal: json['subtotal'] ?? 0,
+      jumlah: _toInt(json['jumlah']),
+      hargaSatuan: _toInt(json['harga_satuan']),
+      subtotal: _toInt(json['subtotal']),
       catatanKhusus: json['catatan_khusus'],
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }

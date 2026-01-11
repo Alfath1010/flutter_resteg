@@ -32,15 +32,28 @@ class Pesanan {
     }
     
     return Pesanan(
-      idPesanan: json['id_pesanan'] ?? 0,
-      idPelanggan: json['id_pelanggan'] ?? 0,
+      idPesanan: _toInt(json['id_pesanan']),
+      idPelanggan: _toInt(json['id_pelanggan']),
       namaPelanggan: json['nama_pelanggan'],
       nomorMeja: json['nomor_meja'],
       tanggalPesanan: json['tanggal_pesanan'] ?? '',
-      totalBayar: json['total_bayar'] ?? 0,
+      totalBayar: _toInt(json['total_bayar']),
       statusPesanan: json['status_pesanan'] ?? '',
       items: items,
-      itemsCount: json['items_count'],
+      itemsCount: _toIntNullable(json['items_count']),
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  static int? _toIntNullable(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 }

@@ -4,6 +4,10 @@ import 'package:crud_api_sample/models/menu.dart';
 import 'package:crud_api_sample/models/pelanggan.dart';
 import 'package:crud_api_sample/models/pesanan.dart';
 import 'package:flutter/material.dart';
+import 'checkout_screen.dart';
+import 'package:crud_api_sample/services/pelanggan_service.dart';
+import 'package:crud_api_sample/services/pesanan_service.dart';
+import 'register_screen.dart';
 
 class PesananScreen extends StatefulWidget {
   final Pelanggan pelanggan;
@@ -31,6 +35,8 @@ class _PesananScreenState extends State<PesananScreen> {
     super.initState();
     _menuFuture = widget.apiClient.getAll();
     _loadPesananItems();
+    // Update service dengan pesanan terbaru
+    PesananServiceActive().setPesanan(widget.pesanan);
   }
 
   Future<void> _loadPesananItems() async {
@@ -41,11 +47,15 @@ class _PesananScreenState extends State<PesananScreen> {
   }
 
   Future<void> _addItemToPesanan(MenuItem menuItem) async {
+    // Show qty dialog
+    final qty = await _showQtyDialog(menuItem);
+    if (qty == null || qty <= 0) return;
+
     setState(() => _isLoading = true);
     
     final result = await widget.apiClient.addPesananItem(
       widget.pesanan.idPesanan,
-      {'id_menu': menuItem.idMenu, 'jumlah': 1},
+      {'id_menu': menuItem.idMenu, 'jumlah': qty},
     );
 
     setState(() => _isLoading = false);
@@ -54,10 +64,66 @@ class _PesananScreenState extends State<PesananScreen> {
       await _loadPesananItems();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${menuItem.namaMenu} ditambahkan')),
+          SnackBar(content: Text('${menuItem.namaMenu} x$qty ditambahkan')),
         );
       }
     }
+  }
+
+  Future<int?> _showQtyDialog(MenuItem menuItem) async {
+    int qty = 1;
+    return showDialog<int?>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(menuItem.namaMenu),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Harga: Rp ${menuItem.harga}'),
+            const SizedBox(height: 16),
+            const Text('Pilih Jumlah:'),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (context, setState) => Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.remove),
+                    onPressed: qty > 1 ? () => setState(() => qty--) : null,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '$qty',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () => setState(() => qty++),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, qty),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Tambahkan'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _deleteItem(DetailPesanan item) async {
@@ -104,18 +170,19 @@ class _PesananScreenState extends State<PesananScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-    
-    final updatedPesanan = await widget.apiClient.checkoutPesanan(
-      widget.pesanan.idPesanan,
+    final result = await Navigator.push<bool?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CheckoutScreen(
+          pelanggan: widget.pelanggan,
+          pesanan: widget.pesanan,
+          items: _items,
+          apiClient: widget.apiClient,
+        ),
+      ),
     );
 
-    setState(() => _isLoading = false);
-
-    if (updatedPesanan != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pesanan berhasil dikonfirmasi')),
-      );
+    if (result == true && mounted) {
       Navigator.pop(context);
     }
   }
@@ -124,11 +191,54 @@ class _PesananScreenState extends State<PesananScreen> {
     return _items.fold(0, (sum, item) => sum + item.subtotal);
   }
 
+  Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Anda yakin ingin keluar dan mengakhiri pesanan?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      PesananServiceActive().clearPesanan();
+      await PelangganService().clearPelanggan();
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RegisterScreen(
+              apiClient: widget.apiClient,
+              onRegisterSuccess: (pelanggan) {},
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Pesanan #${widget.pesanan.idPesanan}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Logout',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -160,43 +270,12 @@ class _PesananScreenState extends State<PesananScreen> {
               border: Border(top: BorderSide(color: Colors.grey[300]!)),
               color: Colors.grey[50],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Total: Rp ${_getTotalBayar()}',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _checkout,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Checkout',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ],
+            child: Text(
+              'Total: Rp ${_getTotalBayar()}',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           Container(
@@ -259,6 +338,14 @@ class _PesananScreenState extends State<PesananScreen> {
           ),
         ],
       ),
+      floatingActionButton: _items.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _isLoading ? null : _checkout,
+              backgroundColor: Colors.green,
+              label: const Text('Checkout'),
+              icon: const Icon(Icons.payment),
+            ),
     );
   }
 }

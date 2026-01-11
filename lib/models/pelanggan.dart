@@ -17,12 +17,18 @@ class Pelanggan {
 
   factory Pelanggan.fromJson(Map<String, dynamic> json) {
     return Pelanggan(
-      idPelanggan: json['id_pelanggan'] ?? 0,
+      idPelanggan: _toInt(json['id_pelanggan']),
       namaPelanggan: json['nama_pelanggan'] ?? '',
       nomorMeja: json['nomor_meja'] ?? '',
       noTelepon: json['no_telepon'] ?? '',
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
     );
+  }
+
+  static int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 }
